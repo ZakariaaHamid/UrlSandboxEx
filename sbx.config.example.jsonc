@@ -1,0 +1,55 @@
+// sbx config. Copy to sbx.config.jsonc (or ~/.config/sbx/config.jsonc,
+// or point SBX_CONFIG at it). Every key is optional.
+// One-off overrides: --set egress.country=de --set settings.interact.mode=passive
+{
+  "outDir": "~/sbx-scans",
+
+  // Scripts run on every visit, in order: built-in names (scripts/)
+  // or paths relative to this file. [] = core only.
+  "scripts": ["stealth", "challenges", "interact", "delays", "dynamic-code", "indicators"],
+
+  // Override scripts' settings without code, section by section.
+  "settings": {
+    // "interact": { "mode": "passive" },
+    // "identity": { "emails": ["canary@your-domain.example"], "passwords": ["..."] }
+  },
+
+  "egress": {
+    // Residential/mobile proxy: the fix for IP-reputation cloaking, the
+    // most common real-world evasion. {country} and {session} are filled in
+    // per visit. http(s):// only (Chromium can't authenticate to SOCKS5).
+    //   Bright Data: http://brd-customer-ID-zone-ZONE-country-{country}-session-{session}:PASS@brd.superproxy.io:33335
+    //   Oxylabs:     http://customer-USER-cc-{country}-sessid-{session}:PASS@pr.oxylabs.io:7777
+    //   IPRoyal:     http://USER:PASS_country-{country}_session-{session}_lifetime-30m@geo.iproyal.com:12321
+    "residentialProxy": "",
+    "country": "us",
+    // host:port the browser may reach despite the public-internet-only policy
+    "allow": []
+  },
+
+  // Extra script folders the web UI offers (relative to this file). Built-ins
+  // are always offered; only installed scripts can ever run.
+  "scriptDirs": [],
+
+  // Fingerprint profile (screen, window, pace, typed identities):
+  // "auto" generates one per installation (urlsandboxex fingerprint rotate to change
+  // it), a path or {"settings": {...}} is yours and used as given, "off"
+  // uses the scripts' defaults. Explicit "settings" below always win.
+  "fingerprint": "auto",
+
+  // Web UI (node web/server.js). No login: keep it on loopback and
+  // reach it over an SSH tunnel (ssh -L 8090:127.0.0.1:8090 host).
+  "web": {
+    "host": "127.0.0.1",
+    "port": 8090,
+    // Host header names accepted besides localhost/127.0.0.1 (DNS-rebinding guard)
+    "allowedHosts": [],
+    "maxConcurrent": 2
+  },
+
+  "jail": {
+    "memoryMax": "2G",
+    "cpuQuota": "200%",
+    "timeoutSec": 240
+  }
+}

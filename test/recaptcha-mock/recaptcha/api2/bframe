@@ -1,0 +1,22 @@
+<!doctype html><meta charset="utf-8"><body style="margin:0;font:14px sans-serif;background:#fff;border:1px solid #ccc;height:576px">
+<div id="images"><p>Select all images with bridges</p><div style="width:380px;height:380px;background:#ddd"></div>
+<button id="recaptcha-audio-button" style="width:40px;height:40px">audio</button></div>
+<div id="audio" style="display:none"><p>Press PLAY to listen</p>
+<div class="rc-audiochallenge-play-button"><button style="width:120px;height:36px">PLAY</button></div>
+<audio id="audio-source" preload="auto"></audio>
+<p>Enter what you hear</p><input id="audio-response" style="width:300px;height:30px">
+<button id="recaptcha-verify-button" style="width:120px;height:36px">VERIFY</button></div>
+<script>
+const ANSWER = "four seven one nine";
+document.getElementById("recaptcha-audio-button").onclick = () => {
+  document.getElementById("images").style.display = "none";
+  document.getElementById("audio").style.display = "block";
+  document.getElementById("audio-source").src = "/recaptcha/api2/payload?p=mock&k=mock";
+};
+document.querySelector(".rc-audiochallenge-play-button button").onclick = () => document.getElementById("audio-source").play().catch(() => {});
+const words = { "4": "four", "7": "seven", "1": "one", "9": "nine" };
+const norm = (s) => s.toLowerCase().replace(/\d/g, (d) => " " + (words[d] || d) + " ").replace(/[^a-z ]/g, " ").replace(/\s+/g, " ").trim();
+document.getElementById("recaptcha-verify-button").onclick = () => {
+  if (norm(document.getElementById("audio-response").value) === ANSWER) parent.postMessage({ token: "03AFcWeA" + "x".repeat(40) }, "*");
+};
+</script>

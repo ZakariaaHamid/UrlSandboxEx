@@ -1,0 +1,115 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Sign in</title>
+<body>
+<h1>Sign in</h1>
+<form id="f"><input type="email" name="email" placeholder="Email"><input type="password" name="password" placeholder="Password"><button type="submit">Next</button></form>
+<script>
+// What a careful kit can check about its own page. Used by `urlsandboxex script
+// check` (tools/script-check.js): scanned without and with a script, and
+// every value that differs is something the script made visible.
+const R = {};
+const nat = (f) => { try { return /\{\s*\[native code\]\s*\}$/.test(Function.prototype.toString.call(f)); } catch (e) { return false; } };
+const own = (o) => { try { return Object.getOwnPropertyNames(o); } catch (e) { return []; } };
+const PAGE_GLOBALS = new Set(["R", "nat", "own", "nonNative", "TARGETS", "watched", "send"]);
+
+// 1. Every function on objects scripts like to hook still looks native.
+const TARGETS = {
+  window, Navigator: Navigator.prototype, Permissions: window.Permissions && Permissions.prototype, Document: Document.prototype,
+  Element: Element.prototype, Node: Node.prototype, EventTarget: EventTarget.prototype, HTMLElement: HTMLElement.prototype,
+  HTMLCanvasElement: HTMLCanvasElement.prototype, CanvasRenderingContext2D: CanvasRenderingContext2D.prototype,
+  WebGLRenderingContext: WebGLRenderingContext.prototype, XMLHttpRequest: XMLHttpRequest.prototype, Clipboard: window.Clipboard && Clipboard.prototype,
+  Function: Function.prototype, Object, JSON, Math, Reflect, Date, DatePrototype: Date.prototype, DateTimeFormat: Intl.DateTimeFormat.prototype,
+  Storage: Storage.prototype, History: History.prototype, console, Performance: Performance.prototype, MediaDevices: window.MediaDevices && MediaDevices.prototype,
+  RTCPeerConnection: window.RTCPeerConnection && RTCPeerConnection.prototype, Crypto: Crypto.prototype, SubtleCrypto: window.SubtleCrypto && SubtleCrypto.prototype,
+  Headers: Headers.prototype, Response: Response.prototype, HTMLFormElement: HTMLFormElement.prototype, HTMLInputElement: HTMLInputElement.prototype,
+  Error, String: String.prototype, Array: Array.prototype, Promise, PromisePrototype: Promise.prototype, Screen: Screen.prototype,
+  NavigatorUAData: window.NavigatorUAData && NavigatorUAData.prototype, Notification: window.Notification, Worker: Worker.prototype,
+  ServiceWorkerContainer: window.ServiceWorkerContainer && ServiceWorkerContainer.prototype, MutationObserver: MutationObserver.prototype,
+};
+function nonNative(targets, skip = new Set()) {
+  const out = [];
+  for (const [name, obj] of Object.entries(targets)) {
+    if (!obj) continue;
+    for (const key of own(obj)) {
+      if (obj === self && skip.has(key)) continue;
+      let d; try { d = Object.getOwnPropertyDescriptor(obj, key); } catch (e) { continue; }
+      for (const fn of [d && d.value, d && d.get, d && d.set]) if (typeof fn === "function" && !nat(fn)) out.push(`${name}.${key}`);
+    }
+  }
+  return out.sort();
+}
+// The objects themselves, not only their prototypes: a hook can sit on
+// the instance (navigator.permissions.query = ...).
+Object.assign(TARGETS, {
+  navigator, permissions: navigator.permissions, clipboard: navigator.clipboard, mediaDevices: navigator.mediaDevices,
+  userAgentData: navigator.userAgentData, document, performance, screen, history, crypto, location, localStorage, sessionStorage,
+});
+R.nonNative = nonNative(TARGETS, PAGE_GLOBALS);
+// Through the paths a page actually calls them.
+const paths = {
+  "navigator.permissions.query": () => navigator.permissions.query, "navigator.clipboard.writeText": () => navigator.clipboard.writeText,
+  "navigator.clipboard.readText": () => navigator.clipboard.readText, "navigator.sendBeacon": () => navigator.sendBeacon,
+  "navigator.mediaDevices.enumerateDevices": () => navigator.mediaDevices.enumerateDevices, "document.execCommand": () => document.execCommand,
+  "document.querySelector": () => document.querySelector, "document.createElement": () => document.createElement, fetch: () => fetch, atob: () => atob, btoa: () => btoa,
+  eval: () => eval, Function: () => Function, setTimeout: () => setTimeout, "XMLHttpRequest.prototype.open": () => XMLHttpRequest.prototype.open,
+  "HTMLCanvasElement.prototype.toDataURL": () => HTMLCanvasElement.prototype.toDataURL, "Element.prototype.attachShadow": () => Element.prototype.attachShadow,
+  "Date.now": () => Date.now, "performance.now": () => performance.now, "Function.prototype.toString": () => Function.prototype.toString,
+};
+R.resolvedNonNative = Object.entries(paths).filter(([, get]) => { try { const f = get(); return typeof f === "function" && !nat(f); } catch (e) { return true; } }).map(([k]) => k).sort();
+R.toStringOfToString = nat(Function.prototype.toString) && nat(Function.prototype.toString.toString);
+
+// 2. Globals and property shapes.
+R.globals = own(window).filter((k) => !PAGE_GLOBALS.has(k)).sort();
+R.navigatorOwnProps = own(navigator).sort();
+R.documentOwnProps = own(document).filter((k) => k !== "location").sort();
+const wd = Object.getOwnPropertyDescriptor(Navigator.prototype, "webdriver");
+R.webdriver = { value: navigator.webdriver, onProto: !!wd, getterNative: wd ? nat(wd.get) : null };
+R.errorStack = { prepare: typeof Error.prepareStackTrace, limit: Error.stackTraceLimit };
+
+// 3. What the browser says about itself.
+R.nav = {
+  ua: navigator.userAgent, platform: navigator.platform, languages: navigator.languages, cores: navigator.hardwareConcurrency,
+  memory: navigator.deviceMemory, touch: navigator.maxTouchPoints, vendor: navigator.vendor, pdf: navigator.pdfViewerEnabled,
+  plugins: navigator.plugins.length, uad: navigator.userAgentData ? [navigator.userAgentData.platform, navigator.userAgentData.mobile] : null,
+};
+R.screen = { w: screen.width, h: screen.height, aw: screen.availWidth, ah: screen.availHeight, dpr: devicePixelRatio, outerPositive: outerWidth > 0 && outerHeight > 0 };
+R.time = { tz: Intl.DateTimeFormat().resolvedOptions().timeZone, offset: new Date().getTimezoneOffset() };
+
+// 4. DevTools leaks.
+(function () {
+  let fired = false;
+  const e = new Error("x");
+  Object.defineProperty(e, "stack", { configurable: true, get() { fired = true; return ""; } });
+  console.debug(e);
+  setTimeout(() => { R.consoleLeak = fired; }, 50);
+})();
+const t0 = performance.now(); debugger; R.debuggerPaused = performance.now() - t0 > 100;
+
+// 5. Code that is not the page's own calling DOM APIs.
+const pageUrl = location.href.split("#")[0];
+R.foreignCaller = false;
+for (const [proto, name] of [[Document.prototype, "querySelector"], [Document.prototype, "querySelectorAll"], [Element.prototype, "getBoundingClientRect"], [Element.prototype, "querySelectorAll"]]) {
+  const orig = proto[name];
+  proto[name] = function (...a) {
+    const frames = (new Error().stack || "").split("\n").slice(2).map((l) => l.trim()).filter(Boolean);
+    if (frames.some((l) => !l.includes(pageUrl))) R.foreignCaller = true;
+    return orig.apply(this, a);
+  };
+}
+
+// 6. The same inside a Worker.
+try {
+  const src = `const nat = (f) => /\\{\\s*\\[native code\\]\\s*\\}$/.test(Function.prototype.toString.call(f));
+    const bad = []; for (const [n, o] of Object.entries({ self, WorkerNavigator: WorkerNavigator.prototype, Function: Function.prototype }))
+      for (const k of Object.getOwnPropertyNames(o)) { const d = Object.getOwnPropertyDescriptor(o, k); for (const f of [d.value, d.get, d.set]) if (typeof f === "function" && !nat(f) && k !== "onmessage") bad.push(n + "." + k); }
+    postMessage({ nonNative: bad.sort(), platform: navigator.platform, cores: navigator.hardwareConcurrency, ua: navigator.userAgent, globals: Object.getOwnPropertyNames(self).sort() });`;
+  const w = new Worker(URL.createObjectURL(new Blob([src], { type: "text/javascript" })));
+  w.onmessage = (e) => { R.worker = e.data; };
+} catch (e) { R.worker = "failed"; }
+
+function send() { fetch("/report" + location.search, { method: "POST", body: JSON.stringify(R), keepalive: true }); }
+setTimeout(send, 4000);
+setTimeout(send, 8000);
+</script>
+</body>

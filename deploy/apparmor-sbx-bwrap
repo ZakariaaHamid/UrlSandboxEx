@@ -1,0 +1,11 @@
+# Phishing sandbox: lets ONLY this dedicated bwrap copy (root:sbx 0750)
+# create user namespaces, instead of relaxing
+# kernel.apparmor_restrict_unprivileged_userns system-wide. Google Chrome
+# gets the same permission from Ubuntu's own /etc/apparmor.d/chrome.
+abi <abi/4.0>,
+include <tunables/global>
+
+profile sbx-bwrap /usr/local/lib/sbx/bwrap flags=(unconfined) {
+  userns,
+  include if exists <local/sbx-bwrap>
+}

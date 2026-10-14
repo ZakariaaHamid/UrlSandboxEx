@@ -1,0 +1,23 @@
+{
+  "name": "urlsandboxex",
+  "version": "1.0.0",
+  "description": "URL sandbox for phishing analysis: a jailed Chrome that gets past cloaking, CAPTCHAs and delays, with script hooks for artifacts.",
+  "private": true,
+  "bin": {
+    "urlsandboxex": "urlsandboxex.js"
+  },
+  "scripts": {
+    "scan": "node urlsandboxex.js",
+    "web": "node web/server.js",
+    "test": "node --test test/unit.test.js",
+    "postinstall": "node tools/prune-onnx.js"
+  },
+  "dependencies": {
+    "express": "4.22.3",
+    "jsqr": "1.4.0",
+    "onnxruntime-node": "1.30.0",
+    "playwright": "1.62.1",
+    "pngjs": "7.0.0",
+    "undici": "6.29.0"
+  }
+}

@@ -1,0 +1,6 @@
+// Let unattended-upgrades keep Google Chrome current (it only follows the
+// Ubuntu security pocket by default). The sandbox's main browser engine is
+// exposed to hostile pages all day; a stale build is the biggest risk.
+Unattended-Upgrade::Origins-Pattern {
+        "origin=Google LLC,codename=stable";
+};

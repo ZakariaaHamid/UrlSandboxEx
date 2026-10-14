@@ -1,0 +1,4 @@
+<!doctype html><meta charset="utf-8"><body style="margin:0;font:14px sans-serif">
+<div style="border:1px solid #ccc;width:300px;height:74px;display:flex;align-items:center;gap:12px;padding-left:12px">
+<span id="recaptcha-anchor" role="checkbox" style="display:inline-block;width:24px;height:24px;border:2px solid #555;cursor:pointer"></span> I'm not a robot</div>
+<script>document.getElementById("recaptcha-anchor").onclick = () => parent.postMessage("checkbox", "*");</script>

@@ -1,0 +1,110 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>UrlSandboxEx automation detector</title>
+<body>
+<h1>Account sign-in</h1>
+<form id="f"><input id="email" type="email" name="email" placeholder="Email"><input id="pw" type="password" name="password" placeholder="Password"><button id="go" type="submit">Next</button></form>
+<script>
+// Self-test page for UrlSandboxEx: techniques real anti-bot scripts and advanced
+// kits use against automated browsers. Results are POSTed to /report.
+const R = { t0: Date.now(), foreignCallers: [] };
+
+// 1. CDP Runtime.enable leak: when DevTools/CDP has Runtime enabled with
+// console API events, console.debug(err) serializes err and fires the stack getter.
+(function () {
+  let fired = false;
+  const e = new Error("x");
+  Object.defineProperty(e, "stack", { configurable: true, get() { fired = true; return ""; } });
+  console.debug(e);
+  setTimeout(() => { R.cdpRuntimeEnableLeak = fired; }, 50);
+})();
+
+// 2. webdriver shape (genuine Chrome: property exists on the prototype, value false)
+R.webdriverValue = navigator.webdriver;
+R.webdriverInNavigator = "webdriver" in navigator;
+R.webdriverDescriptorOnProto = !!Object.getOwnPropertyDescriptor(Navigator.prototype, "webdriver");
+
+// 3. native-function integrity of things sandboxes like to hook
+function isNative(fn) { try { return /\{\s*\[native code\]\s*\}$/.test(Function.prototype.toString.call(fn)); } catch (e) { return "throws"; } }
+R.native = {
+  clipboardWriteText: navigator.clipboard ? isNative(navigator.clipboard.writeText) : "absent",
+  execCommand: isNative(document.execCommand),
+  fnToString: isNative(Function.prototype.toString),
+  getContext: isNative(HTMLCanvasElement.prototype.getContext),
+};
+
+// 4. who calls DOM APIs? Hook common ones and record callers whose stack
+// isn't this page's own script (automation frameworks evaluating in the
+// main world leave "eval"/"<anonymous>"/"__playwright"/"__puppeteer" frames).
+const pageUrl = location.href.split("#")[0];
+function watch(obj, name) {
+  const orig = obj[name];
+  obj[name] = function (...a) {
+    const st = new Error().stack || "";
+    const frames = st.split("\n").slice(2).map((l) => l.trim());
+    const foreign = frames.filter((l) => !l.includes(pageUrl));
+    if (foreign.length && R.foreignCallers.length < 20) R.foreignCallers.push(name + " <- " + foreign.slice(0, 3).join(" | ").slice(0, 300));
+    return orig.apply(this, a);
+  };
+}
+watch(Document.prototype, "querySelectorAll");
+watch(Document.prototype, "querySelector");
+watch(Element.prototype, "getBoundingClientRect");
+watch(Document.prototype, "getElementsByTagName");
+
+// arrival + clock
+R.referrer = document.referrer;
+R.historyLength = history.length;
+R.localTime = new Date().toString();
+R.clockSkewMs = Math.round(Math.abs(Date.now() - (performance.timeOrigin + performance.now())));
+R.dateNative = /\[native code\]/.test(Function.prototype.toString.call(Date)) && /\[native code\]/.test(Function.prototype.toString.call(Date.now));
+R.dateInstance = new Date() instanceof Date && Object.prototype.toString.call(new Date()) === "[object Date]";
+
+// 5. environment
+R.hasFocus0 = document.hasFocus();
+R.visibility0 = document.visibilityState;
+R.outerAt = { parse: outerWidth };
+document.addEventListener("DOMContentLoaded", () => { R.outerAt.dcl = outerWidth; });
+addEventListener("load", () => { R.outerAt.load = outerWidth; });
+requestAnimationFrame(() => { R.outerAt.raf = outerWidth; });
+R.screen = { w: screen.width, h: screen.height, aw: screen.availWidth, ah: screen.availHeight, ow: outerWidth, oh: outerHeight, iw: innerWidth, ih: innerHeight, sx: screenX, sy: screenY };
+R.chromeRuntime = !!(window.chrome && window.chrome.runtime);
+R.chromeObj = !!window.chrome;
+R.plugins = navigator.plugins.length;
+R.languages = navigator.languages;
+R.notificationPerm = typeof Notification !== "undefined" ? Notification.permission : "absent";
+navigator.permissions.query({ name: "notifications" }).then((p) => { R.notificationQuery = p.state; });
+R.devicePixelRatio = devicePixelRatio;
+R.tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+R.webglRenderer = (() => { try { const g = document.createElement("canvas").getContext("webgl"); const x = g.getExtension("WEBGL_debug_renderer_info"); return g.getParameter(x.UNMASKED_RENDERER_WEBGL); } catch (e) { return String(e); } })();
+navigator.mediaDevices.enumerateDevices().then((d) => { R.mediaDevices = d.map((x) => x.kind); });
+setTimeout(() => { R.voices = speechSynthesis.getVoices().length; }, 800);
+
+// WebRTC ICE candidates (real computers show an mDNS .local host candidate)
+try {
+  const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+  const cands = [];
+  pc.createDataChannel("x");
+  pc.onicecandidate = (e) => { if (e.candidate) cands.push(e.candidate.candidate.split(" ").slice(4, 8).join(" ")); };
+  pc.createOffer().then((o) => pc.setLocalDescription(o));
+  setTimeout(() => { R.iceCandidates = cands; pc.close(); }, 2500);
+} catch (e) { R.iceCandidates = String(e); }
+
+navigator.storage.estimate().then((e) => { R.storageQuotaGB = Math.round(e.quota / 1e9 * 10) / 10; });
+
+// 6. behavior
+let moves = 0, trusted = 0, keys = 0;
+addEventListener("mousemove", (e) => { moves++; if (e.isTrusted) trusted++; });
+addEventListener("keydown", (e) => { keys++; });
+addEventListener("focus", () => { R.gotFocusEvent = true; });
+
+function send(final) {
+  R.outerLater = [outerWidth, outerHeight, screenX, screenY];
+  Object.assign(R, { moves, trustedMoves: trusted, keys, hasFocusLater: document.hasFocus(), visibilityLater: document.visibilityState, elapsed: Date.now() - R.t0, final });
+  fetch("/report", { method: "POST", body: JSON.stringify(R), keepalive: true });
+}
+setTimeout(() => send(false), 3000);
+setTimeout(() => send(true), 11000);
+document.getElementById("f").addEventListener("submit", (e) => { e.preventDefault(); R.submitted = true; send(true); });
+</script>
+</body>

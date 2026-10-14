@@ -1,0 +1,22 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>UrlSandboxEx instrumentation test</title>
+<body><div id="o">loading</div>
+<script>
+// Self-test page for UrlSandboxEx instrumentation + anti-debug stealth.
+const R = {};
+// 1. anti-debug: a `debugger;` statement that pauses (DevTools/CDP with
+//    pauses enabled) takes far longer than a few ms.
+const t0 = performance.now(); debugger; R.debuggerPauseMs = Math.round(performance.now() - t0);
+// 2. devtools-style loop
+let maxGap = 0; for (let i = 0; i < 5; i++) { const t = performance.now(); debugger; maxGap = Math.max(maxGap, performance.now() - t); }
+R.debuggerLoopMaxMs = Math.round(maxGap);
+// 3. native integrity of commonly hooked functions
+const nat = (f) => /\{\s*\[native code\]\s*\}$/.test(Function.prototype.toString.call(f));
+R.native = { atob: nat(atob), fetch: nat(fetch), Function: nat(Function), write: nat(document.write) };
+// 4. obfuscated loader: base64 -> eval -> new Function -> hidden exfil URL
+const stage1 = atob("dmFyIGsgPSAiaHR0cHM6Ly9leGZpbC1zdGFnZTIuc2J4LXRlc3QuaW52YWxpZC9jb2xsZWN0IjsgbmV3IEZ1bmN0aW9uKCJ1IiwgIndpbmRvdy5fX2V4ZmlsID0gdTsiKShrKTs=");
+eval(stage1);
+document.getElementById("o").textContent = "stage ran: " + !!window.__exfil;
+setTimeout(() => fetch("/report", { method: "POST", body: JSON.stringify(R) }), 1500);
+</script>

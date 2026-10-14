@@ -1,0 +1,6 @@
+This is a small, synthetic, harmless placeholder file used by
+hardened-sandbox's humanize.js to clear file-upload-gated content
+reveals during a scan. It intentionally contains no real user data;
+see fillFileInputs()'s own comment in humanize.js for why a synthetic
+dummy file is used instead of anything real, the same principle
+typeIntoVisibleFields() already follows for typed field values.

@@ -1,0 +1,15 @@
+<!doctype html><meta charset="utf-8"><title>Mock reCAPTCHA</title>
+<!-- Offline stand-in for reCAPTCHA v2's checkbox -> image puzzle -> audio
+     flow (same frame URLs, ids and token field), for testing the audio
+     solver: python3 server.py, then scan http://127.0.0.1:3014/ -->
+<h1>Sign in</h1>
+<form><textarea id="g-recaptcha-response" name="g-recaptcha-response" style="display:none"></textarea></form>
+<iframe id="anchor" src="http://localhost:3014/recaptcha/api2/anchor?k=mock" width="304" height="78" style="border:0"></iframe>
+<iframe id="bframe" src="about:blank" width="400" height="580" style="border:0;display:none;position:absolute;left:20px;top:120px"></iframe>
+<p id="result">waiting</p>
+<script>
+addEventListener("message", (e) => {
+  if (e.data === "checkbox") { const b = document.getElementById("bframe"); b.src = "http://localhost:3014/recaptcha/api2/bframe?k=mock"; b.style.display = "block"; }
+  if (e.data && e.data.token) { document.getElementById("g-recaptcha-response").value = e.data.token; document.getElementById("bframe").style.display = "none"; document.getElementById("result").textContent = "solved"; }
+});
+</script>

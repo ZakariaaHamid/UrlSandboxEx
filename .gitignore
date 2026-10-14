@@ -1,0 +1,4 @@
+node_modules/
+# Local settings: holds the residential proxy password once configured.
+sbx.config.jsonc
+*.log

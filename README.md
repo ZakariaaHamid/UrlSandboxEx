@@ -8,7 +8,7 @@ network trace, where typed credentials went, and the indicators.
 This project was created with the help of AI.
 
 <p align="center">
-<img src="docs/img/ui-report.png" alt="drawing" width="400" />
+<img src="docs/img/ui-report.png" alt="drawing" width="800" />
 </p>
 
 ## Compared to Urlscan
